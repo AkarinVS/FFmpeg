@@ -166,7 +166,7 @@ static int dnxhd_get_profile(int cid)
 
 static int dnxhd_decode_header(DNXHDContext *ctx, AVFrame *frame,
                                const uint8_t *buf, int buf_size,
-                               int first_field)
+                               int first_field, int *f)
 {
     int i, cid, ret;
     int old_bit_depth = ctx->bit_depth, bitdepth;
@@ -184,8 +184,15 @@ static int dnxhd_decode_header(DNXHDContext *ctx, AVFrame *frame,
                buf[0], buf[1], buf[2], buf[3], buf[4]);
         return AVERROR_INVALIDDATA;
     }
+    
     if (buf[5] & 2) { /* interlaced */
         ctx->cur_field = buf[5] & 1;
+        if (first_field == 1) {
+            *f = ctx->cur_field;
+        }
+        if (first_field == 0 && *f == ctx->cur_field) {
+            ctx->cur_field = (*f == 0) ? 1 : 0;
+        }
         frame->interlaced_frame = 1;
         frame->top_field_first  = first_field ^ ctx->cur_field;
         av_log(ctx->avctx, AV_LOG_DEBUG,
@@ -613,7 +620,7 @@ static int dnxhd_decode_frame(AVCodecContext *avctx, void *data,
     ThreadFrame frame = { .f = data };
     AVFrame *picture = data;
     int first_field = 1;
-    int ret, i;
+    int ret, i, f;
 
     ff_dlog(avctx, "frame size %d\n", buf_size);
 
@@ -621,7 +628,7 @@ static int dnxhd_decode_frame(AVCodecContext *avctx, void *data,
         ctx->rows[i].format = -1;
 
 decode_coding_unit:
-    if ((ret = dnxhd_decode_header(ctx, picture, buf, buf_size, first_field)) < 0)
+    if ((ret = dnxhd_decode_header(ctx, picture, buf, buf_size, first_field, &f)) < 0)
         return ret;
 
     if ((avctx->width || avctx->height) &&
