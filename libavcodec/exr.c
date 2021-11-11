@@ -1014,7 +1014,9 @@ static int dwa_uncompress(EXRContext *s, const uint8_t *src, int compressed_size
     dc_count = AV_RL64(src + 72);
     ac_compression = AV_RL64(src + 80);
 
-    if (compressed_size < 88LL + lo_size + ac_size + dc_size + rle_csize)
+    if (   compressed_size < (uint64_t)(lo_size | ac_size | dc_size | rle_csize) || compressed_size < 88LL + lo_size + ac_size + dc_size + rle_csize
+        || ac_count > (uint64_t)INT_MAX/2
+    )
         return AVERROR_INVALIDDATA;
 
     bytestream2_init(&gb, src + 88, compressed_size - 88);
@@ -1031,11 +1033,13 @@ static int dwa_uncompress(EXRContext *s, const uint8_t *src, int compressed_size
     }
 
     if (ac_size > 0) {
-        unsigned long dest_len = ac_count * 2LL;
+        unsigned long dest_len;
         GetByteContext agb = gb;
 
         if (ac_count > 3LL * td->xsize * s->scan_lines_per_block)
             return AVERROR_INVALIDDATA;
+
+        dest_len = ac_count * 2LL;
 
         av_fast_padded_malloc(&td->ac_data, &td->ac_size, dest_len);
         if (!td->ac_data)
@@ -1060,11 +1064,13 @@ static int dwa_uncompress(EXRContext *s, const uint8_t *src, int compressed_size
     }
 
     {
-        unsigned long dest_len = dc_count * 2LL;
+        unsigned long dest_len;
         GetByteContext agb = gb;
 
         if (dc_count != dc_w * dc_h * 3)
             return AVERROR_INVALIDDATA;
+
+        dest_len = dc_count * 2LL;
 
         av_fast_padded_malloc(&td->dc_data, &td->dc_size, FFALIGN(dest_len, 64) * 2);
         if (!td->dc_data)
