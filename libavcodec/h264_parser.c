@@ -348,7 +348,7 @@ static inline int parse_nal_units(AVCodecParserContext *s,
             s->pict_type = ff_h264_golomb_to_pict_type[slice_type % 5];
             if (p->sei.recovery_point.recovery_frame_cnt >= 0) {
                 /* key frame, since recovery_frame_cnt is set */
-                s->key_frame = 1;
+                s->key_frame = 2;
             }
             pps_id = get_ue_golomb(&nal.gb);
             if (pps_id >= MAX_PPS_COUNT) {
